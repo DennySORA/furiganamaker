@@ -53,14 +53,23 @@ export const generalSettingsFallback = {
   [ExtStorage.KanjiFilter]: false,
   [ExtStorage.DisplayMode]: DisplayMode.Always,
   [ExtStorage.FuriganaType]: FuriganaType.Hiragana,
-  [ExtStorage.SelectMode]: SelectMode.Default,
+  [ExtStorage.SelectMode]: SelectMode.Original,
   [ExtStorage.FontSize]: 75,
   [ExtStorage.FontColor]: "currentColor",
 } satisfies GeneralSettings;
 
 export const generalSettings = storage.defineItem<GeneralSettings>("local:generalSettings", {
-  version: 1,
+  version: 2,
   fallback: generalSettingsFallback,
+  migrations: {
+    2: (oldValue: GeneralSettings) => ({
+      ...oldValue,
+      [ExtStorage.SelectMode]:
+        oldValue[ExtStorage.SelectMode] === SelectMode.Default
+          ? SelectMode.Original
+          : (oldValue[ExtStorage.SelectMode] ?? SelectMode.Original),
+    }),
+  },
 });
 
 export async function setGeneralSettings<K extends keyof GeneralSettings>(

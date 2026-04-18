@@ -25,6 +25,7 @@ export type Command = keyof typeof commands;
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
+  outDir: "output",
   manifest: {
     name: "Furigana Maker",
     description: "__MSG_extDescription__",

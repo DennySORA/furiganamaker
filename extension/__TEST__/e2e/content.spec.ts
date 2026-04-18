@@ -1,5 +1,36 @@
+import type { Page } from "@playwright/test";
 import { describe, expect, test } from "../fixtures";
 import { cleanRubyHtml } from "../utils";
+
+async function setSelectMode(page: Page, extensionId: string, label: "Original" | "Parentheses") {
+  await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  await page.locator(".playwright-switch-select-mode").click();
+  await page.getByRole("listbox").getByText(label).click();
+  await expect(page.getByRole("button", { name: label })).toBeVisible();
+}
+
+async function copyNodeContents(page: Page, selector: string) {
+  return await page.$eval(selector, (element) => {
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    selection?.addRange(range);
+
+    const event = new ClipboardEvent("copy", {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: new DataTransfer(),
+    });
+    document.dispatchEvent(event);
+
+    return {
+      defaultPrevented: event.defaultPrevented,
+      html: event.clipboardData?.getData("text/html") ?? "",
+      text: event.clipboardData?.getData("text/plain") ?? "",
+    };
+  });
+}
 
 describe("Content scripts", () => {
   test("Automatically add furigana when lang is ja", async ({ page }) => {
@@ -153,5 +184,68 @@ describe("Content scripts", () => {
 
     await page.goto(url);
     await expect(page.locator("body ruby")).toHaveCount(0);
+  });
+
+  test("Original select mode copies only the base Japanese text", async ({ page, extensionId }) => {
+    const url = "https://example.org/test-copy-original";
+    const html = `<!doctype html>
+      <html lang="ja">
+      <head>
+        <meta charset="utf-8" />
+      </head>
+      <body>
+        <p id="target">漢字テスト</p>
+      </body>
+      </html>`;
+
+    await page.route(url, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        body: html,
+      });
+    });
+
+    await setSelectMode(page, extensionId, "Original");
+    await page.goto(url);
+    await page.waitForSelector("body ruby");
+
+    const copied = await copyNodeContents(page, "#target");
+    expect(copied.defaultPrevented).toBe(true);
+    expect(copied.text).toBe("漢字テスト");
+    expect(cleanRubyHtml(copied.html)).toBe("漢字テスト");
+  });
+
+  test("Parentheses select mode copies furigana as plain-text annotations", async ({
+    page,
+    extensionId,
+  }) => {
+    const url = "https://example.org/test-copy-parentheses";
+    const html = `<!doctype html>
+      <html lang="ja">
+      <head>
+        <meta charset="utf-8" />
+      </head>
+      <body>
+        <p id="target">漢字テスト</p>
+      </body>
+      </html>`;
+
+    await page.route(url, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        body: html,
+      });
+    });
+
+    await setSelectMode(page, extensionId, "Parentheses");
+    await page.goto(url);
+    await page.waitForSelector("body ruby");
+
+    const copied = await copyNodeContents(page, "#target");
+    expect(copied.defaultPrevented).toBe(true);
+    expect(copied.text).toBe("漢字(かんじ)テスト");
+    expect(cleanRubyHtml(copied.html)).toBe("漢字(かんじ)テスト");
   });
 });

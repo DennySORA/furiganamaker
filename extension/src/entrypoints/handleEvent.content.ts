@@ -1,6 +1,5 @@
 import { match } from "ts-pattern";
 import { toHiragana, toKatakana, toRomaji } from "wanakana";
-
 import {
   DisplayMode,
   ExtEvent,
@@ -8,10 +7,14 @@ import {
   FURIGANA_CLASS,
   FuriganaType,
   SelectMode,
+  type SelectMode as SelectModeValue,
   type StyleEvent,
 } from "@/commons/constants";
+import { buildClipboardPayload } from "@/commons/copySelection";
 import { Selector } from "@/commons/selectElement";
 import { getGeneralSettings, getMoreSettings, toStorageKey } from "@/commons/utils";
+
+let currentSelectMode: SelectModeValue = SelectMode.Original;
 
 export default defineContentScript({
   matches: ["*://*/*"],
@@ -38,6 +41,7 @@ export default defineContentScript({
         styleHandler(event);
       }
     });
+    document.addEventListener("copy", copyHandler, { capture: true });
   },
 });
 
@@ -49,6 +53,9 @@ async function styleHandler(type: StyleEvent) {
   const filteredRtSelector = `${rubySelector}.isFiltered > rt`;
 
   const value = await getGeneralSettings(toStorageKey(type));
+  if (type === ExtEvent.SwitchSelectMode) {
+    currentSelectMode = value as SelectMode;
+  }
   const css = await match(type)
     .with(ExtEvent.SwitchDisplayMode, () =>
       match(value as DisplayMode)
@@ -151,6 +158,23 @@ async function styleHandler(type: StyleEvent) {
     style.textContent = css;
     document.head.appendChild(style);
   }
+}
+
+function copyHandler(event: ClipboardEvent) {
+  const selection = document.getSelection();
+  if (!(selection && event.clipboardData)) {
+    return;
+  }
+
+  const payload = buildClipboardPayload(selection, currentSelectMode);
+  if (!payload) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  event.clipboardData.setData("text/plain", payload.text);
+  event.clipboardData.setData("text/html", payload.html);
 }
 
 async function switchFuriganaHandler() {

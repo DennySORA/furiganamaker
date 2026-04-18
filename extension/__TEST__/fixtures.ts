@@ -3,8 +3,8 @@ import { type BrowserContext, test as base, chromium } from "@playwright/test";
 
 const pathToExtension =
   process.env.NODE_ENV === "development"
-    ? path.resolve(".output/chrome-mv3-dev")
-    : path.resolve(".output/chrome-mv3");
+    ? path.resolve("output/chrome-mv3-dev")
+    : path.resolve("output/chrome-mv3");
 
 export const test = base.extend<{
   context: BrowserContext;

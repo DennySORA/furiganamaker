@@ -24,8 +24,8 @@ describe("Extension popup page", () => {
     expect(displayModeSelect).toBeVisible();
     const furiganaTypeSelect = page.getByRole("button", { name: "Hiragana" });
     expect(furiganaTypeSelect).toBeVisible();
-    const selectModeSelect = page.getByRole("button", { name: "Default" });
-    expect(selectModeSelect).toBeVisible();
+    const selectModeSelect = page.locator(".playwright-switch-select-mode");
+    expect(selectModeSelect).toContainText("Original");
     const slider = page.getByRole("slider");
     expect(await slider.getAttribute("aria-valuenow")).toBe("75");
     const fontColorIndicator = page.locator("div[style='background-color: currentcolor;']");
